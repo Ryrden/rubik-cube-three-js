@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const scene = new THREE.Scene();
 
@@ -12,16 +13,21 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.5;
+
 const cubeletSize = 1;
 const spacing = 0.05;
 
 const faceColors = [
-  0xff0000, // Right - Red
-  0xffa500, // Left - Orange
-  0x0000ff, // Top - Blue
-  0x00ff00, // Bottom - Green
-  0xffff00, // Front - Yellow
-  0xffffff  // Back - White
+  0xff0000, // Right
+  0xffa500, // Left
+  0x0000ff, // Top
+  0x00ff00, // Bottom
+  0xffff00, // Front
+  0xffffff  // Back
 ];
 
 const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize);
@@ -47,8 +53,7 @@ scene.add(cubeGroup);
 
 function animate() {
   requestAnimationFrame(animate);
-  cubeGroup.rotation.x += 0.01;
-  cubeGroup.rotation.y += 0.01;
+  controls.update();
   renderer.render(scene, camera);
 }
 
