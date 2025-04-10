@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
+let isRotating = false;
+const moveQueue: { axis: 'x' | 'y' | 'z'; value: number; clockwise: boolean }[] = [];
+
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
@@ -115,19 +118,15 @@ function rotateFace(
   clockwise: boolean = true,
   duration: number = 300
 ) {
+  if (isRotating) return;
+  isRotating = true;
 
   const layerGroup = new THREE.Group();
 
   const selected = cubelets.filter(c => {
     const pos = c.userData.initialPosition;
-    const rounded = Math.round(pos[axis]);
-    const match = rounded === value;
-    return match;
+    return Math.round(pos[axis]) === value;
   });
-
-  if (selected.length !== 9) {
-    console.warn(`⚠️ Expected 9 cubelets but found ${selected.length}. Check layer selection logic.`);
-  }
 
   selected.forEach(cubelet => {
     cubeGroup.remove(cubelet);
@@ -138,7 +137,6 @@ function rotateFace(
 
   const startTime = performance.now();
   const angle = (Math.PI / 2) * (clockwise ? 1 : -1);
-
 
   function animateRotation(now: number) {
     const elapsed = now - startTime;
@@ -151,7 +149,7 @@ function rotateFace(
     if (t < 1) {
       requestAnimationFrame(animateRotation);
     } else {
-
+      // Finish rotation
       layerGroup.rotation[axis] = angle;
       layerGroup.updateMatrixWorld(true);
 
@@ -160,10 +158,12 @@ function rotateFace(
         cubelet.userData.initialPosition.applyMatrix4(layerGroup.matrix);
         layerGroup.remove(cubelet);
         cubeGroup.add(cubelet);
-
       });
 
       scene.remove(layerGroup);
+      isRotating = false;
+
+      processNextMove();
     }
   }
 
@@ -171,30 +171,37 @@ function rotateFace(
 }
 
 
+
+function processNextMove() {
+  if (isRotating || moveQueue.length === 0) return;
+
+  const next = moveQueue.shift();
+  if (next) {
+    rotateFace(next.axis, next.value, next.clockwise);
+  }
+}
+
 window.addEventListener('keydown', (e) => {
   const isShift = e.shiftKey;
+  const clockwise = !isShift;
+
+  let move: { axis: 'x' | 'y' | 'z'; value: number; clockwise: boolean } | null = null;
 
   switch (e.key.toLowerCase()) {
-    case 'w': // U
-      rotateFace('y', 1, !isShift);
-      break;
-    case 's': // D
-      rotateFace('y', -1, !isShift);
-      break;
-    case 'a': // L
-      rotateFace('x', -1, !isShift);
-      break;
-    case 'd': // R
-      rotateFace('x', 1, !isShift);
-      break;
-    case 'q': // F
-      rotateFace('z', 1, !isShift);
-      break;
-    case 'e': // B
-      rotateFace('z', -1, !isShift);
-      break;
+    case 'w': move = { axis: 'y', value: 1, clockwise }; break;  // U
+    case 's': move = { axis: 'y', value: -1, clockwise }; break; // D
+    case 'a': move = { axis: 'x', value: -1, clockwise }; break; // L
+    case 'd': move = { axis: 'x', value: 1, clockwise }; break;  // R
+    case 'q': move = { axis: 'z', value: 1, clockwise }; break;  // F
+    case 'e': move = { axis: 'z', value: -1, clockwise }; break; // B
+  }
+
+  if (move) {
+    moveQueue.push(move);
+    processNextMove();
   }
 });
+
 
 
 animate();
