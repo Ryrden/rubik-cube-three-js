@@ -64,52 +64,90 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function rotateTopFaceClockwise() {
-  const layerY = Math.max(...cubelets.map(c => c.userData.initialPosition.y));
+function rotateFace(
+  axis: 'x' | 'y' | 'z',
+  value: number,
+  clockwise: boolean = true,
+  duration: number = 300
+) {
 
-  const faceGroup = new THREE.Group();
-  const selected = cubelets.filter(c =>
-    Math.abs(c.userData.initialPosition.y - layerY) < 0.01
-  );
+  const layerGroup = new THREE.Group();
 
-  selected.forEach(c => {
-    cubeGroup.remove(c);
-    faceGroup.add(c);
+  const selected = cubelets.filter(c => {
+    const pos = c.userData.initialPosition;
+    const rounded = Math.round(pos[axis]);
+    const match = rounded === value;
+    return match;
   });
 
-  scene.add(faceGroup);
+  if (selected.length !== 9) {
+    console.warn(`⚠️ Expected 9 cubelets but found ${selected.length}. Check layer selection logic.`);
+  }
 
-  const duration = 500; // ms
+  selected.forEach(cubelet => {
+    cubeGroup.remove(cubelet);
+    layerGroup.add(cubelet);
+  });
+
+  scene.add(layerGroup);
+
   const startTime = performance.now();
+  const angle = (Math.PI / 2) * (clockwise ? 1 : -1);
 
-  function animateRotation(time: number) {
-    const elapsed = time - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const angle = progress * (Math.PI / 2); // 90° clockwise
 
-    faceGroup.rotation.y = -angle;
+  function animateRotation(now: number) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const currentAngle = angle * t;
 
-    if (progress < 1) {
+    layerGroup.rotation.set(0, 0, 0);
+    layerGroup.rotation[axis] = currentAngle;
+
+    if (t < 1) {
       requestAnimationFrame(animateRotation);
     } else {
-      faceGroup.updateMatrixWorld(true);
+
+      layerGroup.rotation[axis] = angle;
+      layerGroup.updateMatrixWorld(true);
+
       selected.forEach(cubelet => {
-        cubelet.applyMatrix4(faceGroup.matrix);
-        cubelet.userData.initialPosition.applyMatrix4(faceGroup.matrix);
-        faceGroup.remove(cubelet);
+        cubelet.applyMatrix4(layerGroup.matrix);
+        cubelet.userData.initialPosition.applyMatrix4(layerGroup.matrix);
+        layerGroup.remove(cubelet);
         cubeGroup.add(cubelet);
+
       });
 
-      scene.remove(faceGroup);
+      scene.remove(layerGroup);
     }
   }
 
   requestAnimationFrame(animateRotation);
 }
 
+
 window.addEventListener('keydown', (e) => {
-  if (e.key === 't') { // 't' for top
-    rotateTopFaceClockwise();
+  const isShift = e.shiftKey;
+
+  switch (e.key.toLowerCase()) {
+    case 'w': // U
+      rotateFace('y', 1, !isShift);
+      break;
+    case 's': // D
+      rotateFace('y', -1, !isShift);
+      break;
+    case 'a': // L
+      rotateFace('x', -1, !isShift);
+      break;
+    case 'd': // R
+      rotateFace('x', 1, !isShift);
+      break;
+    case 'q': // F
+      rotateFace('z', 1, !isShift);
+      break;
+    case 'e': // B
+      rotateFace('z', -1, !isShift);
+      break;
   }
 });
 
